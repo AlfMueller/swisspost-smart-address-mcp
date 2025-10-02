@@ -89,33 +89,33 @@ async def main():
         {
             'name': 'PLZ und Ort vertauscht',
             'input': {
-                'street': 'Pfingstweidstrasse 94',
-                'city': '8005',
-                'postcode': 'Zürich'
+                'street': 'Musterstrasse 123',
+                'city': '8001',
+                'postcode': 'Musterstadt'
             }
         },
         {
             'name': 'Hausnummer am Anfang',
             'input': {
-                'street': '94 Pfingstweidstrasse',
-                'city': 'Zürich',
-                'postcode': '8005'
+                'street': '123 Musterstrasse',
+                'city': 'Musterstadt',
+                'postcode': '8001'
             }
         },
         {
             'name': 'Abkürzung in Strassenname',
             'input': {
                 'street': 'Hauptstr. 43',
-                'city': 'Bern',
-                'postcode': '3000'
+                'city': 'Beispielstadt',
+                'postcode': '8002'
             }
         },
         {
             'name': 'Verklebte Hausnummer',
             'input': {
-                'street': 'Bahnhofstrasse43',
-                'city': 'Zürich',
-                'postcode': '8001'
+                'street': 'Bahnhofstrasse123',
+                'city': 'Teststadt',
+                'postcode': '8003'
             }
         },
         {
