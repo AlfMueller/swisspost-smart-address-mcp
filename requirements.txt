@@ -1,0 +1,4 @@
+httpx>=0.27.1
+mcp>=1.15.0
+python-dotenv>=1.0.0
+aiohttp>=3.8.0
