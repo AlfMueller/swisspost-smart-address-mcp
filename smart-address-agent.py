@@ -143,6 +143,103 @@ class AddressAnalyzer:
         # Normalisieren auf längeren String
         max_len = max(len(a_norm.replace(' ', '')), len(b_norm.replace(' ', '')))
         return overlap / max_len if max_len > 0 else 0.0
+    
+    @staticmethod
+    def expand_street_abbreviations(street: str) -> str:
+        """
+        Erweitert Strassen-Abkürzungen zu vollständigen Namen
+        """
+        if not street:
+            return street
+        
+        # Deutsche Abkürzungen
+        german_abbrev = {
+            'str.': 'strasse',
+            'str': 'strasse',
+            'g.': 'gasse',
+            'wg.': 'weg',
+            'wg': 'weg',
+            'pl.': 'platz',
+            'pl': 'platz',
+            'all.': 'allee',
+            'all': 'allee',
+            'r.': 'ring',
+            'r': 'ring',
+            'prom.': 'promenade',
+            'prom': 'promenade'
+        }
+        
+        # Französische Abkürzungen
+        french_abbrev = {
+            'r.': 'rue',
+            'av.': 'avenue',
+            'av': 'avenue',
+            'bd.': 'boulevard',
+            'bd': 'boulevard',
+            'ch.': 'chemin',
+            'ch': 'chemin',
+            'pl.': 'place',
+            'pl': 'place',
+            'rt.': 'route',
+            'rt': 'route',
+            'prom.': 'promenade',
+            'prom': 'promenade'
+        }
+        
+        # Italienische Abkürzungen
+        italian_abbrev = {
+            'v.': 'via',
+            'vl.': 'viale',
+            'vl': 'viale',
+            'c.so': 'corso',
+            'cs.': 'corso',
+            'cs': 'corso',
+            'p.za': 'piazza',
+            'p.za.': 'piazza',
+            'l.go': 'largo',
+            'l.go.': 'largo',
+            'vic.': 'vicolo',
+            'vic': 'vicolo',
+            'pgg.': 'passeggiata',
+            'pgg': 'passeggiata'
+        }
+        
+        # Alle Abkürzungen zusammenfassen
+        all_abbrev = {**german_abbrev, **french_abbrev, **italian_abbrev}
+        
+        # Abkürzungen ersetzen (case-insensitive)
+        result = street
+        for abbrev, full in all_abbrev.items():
+            # Ersetze mit Groß-/Kleinschreibung beibehalten
+            pattern = re.compile(re.escape(abbrev), re.IGNORECASE)
+            result = pattern.sub(lambda m: full if m.group().islower() else full.capitalize(), result)
+        
+        return result
+    
+    @staticmethod
+    def format_corrected_output(street_name: str, house_number: str, city: str, postcode: str) -> Dict[str, str]:
+        """
+        Formatiert die korrigierte Ausgabe mit korrekter Groß-/Kleinschreibung
+        """
+        # Stadt mit korrekter Groß-/Kleinschreibung
+        city_formatted = city.title() if city else ""
+        
+        # Strasse mit korrekter Groß-/Kleinschreibung
+        street_formatted = street_name.title() if street_name else ""
+        
+        # Hausnummer unverändert
+        house_formatted = house_number if house_number else ""
+        
+        # Vollständige Strasse
+        street_full = f"{street_formatted} {house_formatted}".strip()
+        
+        return {
+            "street_name": street_formatted,
+            "house_number": house_formatted,
+            "city": city_formatted,
+            "postcode": postcode,
+            "street_full": street_full
+        }
 
 
 class SmartAddressAgent:
@@ -272,7 +369,18 @@ class SmartAddressAgent:
             })
             city_final = city_corrected
         
-        # Schritt 3: Street Autocomplete - korrekte Schreibweise
+        # Schritt 3: Abkürzungen erweitern
+        street_expanded = self.analyzer.expand_street_abbreviations(street_name_raw)
+        if street_expanded != street_name_raw:
+            corrections.append({
+                'type': 'street_abbreviation_expanded',
+                'message': f'Strassen-Abkürzung erweitert',
+                'old': street_name_raw,
+                'new': street_expanded
+            })
+            street_name_raw = street_expanded
+        
+        # Schritt 4: Street Autocomplete - korrekte Schreibweise
         if postcode_raw and street_name_raw:
             street_corrected = await self.autocomplete_street(postcode_raw, street_name_raw)
             if street_corrected and street_corrected != street_name_raw:
@@ -284,7 +392,7 @@ class SmartAddressAgent:
                 })
                 street_name_raw = street_corrected
         
-        # Schritt 4: House Autocomplete - Hausnummer validieren
+        # Schritt 5: House Autocomplete - Hausnummer validieren
         if postcode_raw and street_name_raw and house_no_raw:
             house_validated = await self.autocomplete_house(
                 postcode_raw, street_name_raw, house_no_raw
@@ -298,7 +406,7 @@ class SmartAddressAgent:
                 })
                 house_no_raw = house_validated
         
-        # Schritt 5: Finale Validierung
+        # Schritt 6: Finale Validierung
         validation_result = await self.call_validation_api({
             'firstname': address.get('firstname', ''),
             'lastname': address.get('lastname', ''),
@@ -312,6 +420,11 @@ class SmartAddressAgent:
         quality = validation_result.get('response', {}).get('quality', 'UNUSABLE')
         score = self.quality_to_score(quality)
         
+        # Korrigierte Ausgabe formatieren
+        corrected_formatted = self.analyzer.format_corrected_output(
+            street_name_raw, house_no_raw, city_final, postcode_raw
+        )
+        
         return {
             'status': 'success' if score >= 50 else 'failed',
             'quality': quality,
@@ -322,13 +435,7 @@ class SmartAddressAgent:
                 'city': city_raw,
                 'postcode': postcode_raw
             },
-            'corrected': {
-                'street_name': street_name_raw,
-                'house_number': house_no_raw,
-                'city': city_final,
-                'postcode': postcode_raw,
-                'street_full': f"{street_name_raw} {house_no_raw}".strip()
-            },
+            'corrected': corrected_formatted,
             'validation': validation_result.get('response', {}),
             'has_corrections': len(corrections) > 0
         }
