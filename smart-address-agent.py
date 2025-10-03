@@ -229,7 +229,8 @@ class AddressAnalyzer:
         return result
     
     @staticmethod
-    def format_corrected_output(street_name: str, house_number: str, city: str, postcode: str) -> Dict[str, str]:
+    def format_corrected_output(street_name: str, house_number: str, city: str, postcode: str, 
+                               firstname: str = "", lastname: str = "", company: str = "") -> Dict[str, str]:
         """
         Formatiert die korrigierte Ausgabe mit korrekter Groß-/Kleinschreibung
         """
@@ -245,12 +246,20 @@ class AddressAnalyzer:
         # Vollständige Strasse
         street_full = f"{street_formatted} {house_formatted}".strip()
         
+        # Personendaten mit korrekter Groß-/Kleinschreibung
+        firstname_formatted = firstname.title() if firstname else ""
+        lastname_formatted = lastname.title() if lastname else ""
+        company_formatted = company.title() if company else ""
+        
         return {
             "street_name": street_formatted,
             "house_number": house_formatted,
             "city": city_formatted,
             "postcode": postcode,
-            "street_full": street_full
+            "street_full": street_full,
+            "firstname": firstname_formatted,
+            "lastname": lastname_formatted,
+            "company": company_formatted
         }
 
 
@@ -434,7 +443,8 @@ class SmartAddressAgent:
         
         # Korrigierte Ausgabe formatieren
         corrected_formatted = self.analyzer.format_corrected_output(
-            street_name_raw, house_no_raw, city_final, postcode_raw
+            street_name_raw, house_no_raw, city_final, postcode_raw,
+            address.get('firstname', ''), address.get('lastname', ''), address.get('company', '')
         )
         
         return {
