@@ -652,13 +652,28 @@ class SmartAddressAgent:
                     return None
                 
                 data = response.json()
+                print(f"DEBUG: Street API response: {data}")
+                
                 streets = data.get('streets', [])
                 
                 if not streets:
+                    print(f"DEBUG: No streets found for {street_input} in {zip_code}")
+                    return None
+                
+                # Prüfe ob streets eine Liste ist
+                if not isinstance(streets, list):
+                    print(f"DEBUG: Streets is not a list: {type(streets)} - {streets}")
+                    return None
+                
+                # Prüfe ob der erste Eintrag ein Dictionary ist
+                if not isinstance(streets[0], dict):
+                    print(f"DEBUG: First street entry is not a dict: {type(streets[0])} - {streets[0]}")
                     return None
                 
                 # Ersten/besten Match nehmen
-                return streets[0].get('name', '')
+                street_name = streets[0].get('name', '')
+                print(f"DEBUG: Found street name: {street_name}")
+                return street_name
         
         except Exception as e:
             print(f"Street Autocomplete Fehler: {e}")
@@ -685,13 +700,28 @@ class SmartAddressAgent:
                     return None
                 
                 data = response.json()
+                print(f"DEBUG: House API response: {data}")
+                
                 houses = data.get('houses', [])
                 
                 if not houses:
+                    print(f"DEBUG: No houses found for {house_no} in {street_name}, {zip_code}")
+                    return None
+                
+                # Prüfe ob houses eine Liste ist
+                if not isinstance(houses, list):
+                    print(f"DEBUG: Houses is not a list: {type(houses)} - {houses}")
+                    return None
+                
+                # Prüfe ob der erste Eintrag ein Dictionary ist
+                if not isinstance(houses[0], dict):
+                    print(f"DEBUG: First house entry is not a dict: {type(houses[0])} - {houses[0]}")
                     return None
                 
                 # Ersten Match nehmen
-                return houses[0].get('number', '')
+                house_number = houses[0].get('number', '')
+                print(f"DEBUG: Found house number: {house_number}")
+                return house_number
         
         except Exception as e:
             print(f"House Autocomplete Fehler: {e}")

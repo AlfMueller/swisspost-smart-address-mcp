@@ -89,7 +89,8 @@ copy config.env .env
 SWISSPOST_CLIENT_ID=ihre_echte_client_id
 SWISSPOST_CLIENT_SECRET=ihr_echtes_secret
 # Verfügbare Scopes siehe Abschnitt "API Scopes" unten
-SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE
+# WICHTIG: Für City Correction wird auch DCAPI_ADDRESS_AUTOCOMPLETE benötigt!
+SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE DCAPI_ADDRESS_AUTOCOMPLETE
 ```
 
 **Hinweis:** Die .env Datei wird automatisch geladen (python-dotenv). Keine manuellen Umgebungsvariablen nötig!
@@ -98,7 +99,7 @@ SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE
 ```powershell
 $env:SWISSPOST_CLIENT_ID="ihre_client_id"
 $env:SWISSPOST_CLIENT_SECRET="ihr_secret"
-$env:SWISSPOST_SCOPE="DCAPI_ADDRESS_VALIDATE"
+$env:SWISSPOST_SCOPE="DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE"
 ```
 
 **Option C: config.env verwenden**
@@ -685,7 +686,7 @@ copy config.env .env
 # Dann .env bearbeiten und echte Credentials eintragen:
 SWISSPOST_CLIENT_ID=ihre_echte_client_id
 SWISSPOST_CLIENT_SECRET=ihr_echtes_secret
-SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE
+SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE
 ```
 
 **Schritt 4: Claude Desktop starten**
@@ -767,7 +768,7 @@ SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE
 # .env Datei im Projektverzeichnis erstellen
 SWISSPOST_CLIENT_ID=ihre_echte_client_id
 SWISSPOST_CLIENT_SECRET=ihr_echtes_secret
-SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE
+SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE
 ```
 
 **Wichtig:** Die `.env` Datei ist in `.gitignore` und wird **NICHT** hochgeladen!
@@ -779,6 +780,7 @@ Die Swisspost Digital Commerce API bietet verschiedene Berechtigungsbereiche (Sc
 ### **Adress-Services**
 - `DCAPI_ADDRESS_READ` - Lesen von Adressdaten
 - `DCAPI_ADDRESS_VALIDATE` - Validierung von Adressen *(Standard für dieses Projekt)*
+- `DCAPI_ADDRESS_AUTOCOMPLETE` - Autocomplete für Städte, Straßen und Hausnummern *(Für City Correction erforderlich)*
 
 ### **Versand-Services**  
 - `DCAPI_SHIPPING` - Zugriff auf Versanddienste
@@ -791,12 +793,12 @@ Die Swisspost Digital Commerce API bietet verschiedene Berechtigungsbereiche (Sc
 
 **Für Adressvalidierung (empfohlen):**
 ```bash
-SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE
+SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE
 ```
 
 **Für erweiterte Adressfunktionen:**
 ```bash
-SWISSPOST_SCOPE=DCAPI_ADDRESS_READ DCAPI_ADDRESS_VALIDATE
+SWISSPOST_SCOPE=DCAPI_ADDRESS_READ DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE
 ```
 
 **Für Versanddienste:**
