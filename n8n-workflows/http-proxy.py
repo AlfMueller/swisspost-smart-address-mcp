@@ -60,6 +60,7 @@ async def enhanced_zip_lookup(zip_code: str, city_input: str):
     try:
         token = await get_swisspost_token()
         if not token:
+            print(f"DEBUG: No token available for enhanced ZIP lookup")
             return None
             
         async with httpx.AsyncClient() as client:
@@ -74,12 +75,16 @@ async def enhanced_zip_lookup(zip_code: str, city_input: str):
             )
             
             if response.status_code != 200:
+                print(f"DEBUG: ZIP API returned status {response.status_code}: {response.text}")
                 return None
             
             data = response.json()
             zips = data.get('zips', [])
             
+            print(f"DEBUG: ZIP API response for {zip_code}: {len(zips)} cities found")
+            
             if not zips:
+                print(f"DEBUG: No cities found for ZIP {zip_code}")
                 return None
             
             # Verschiedene Suchstrategien
@@ -89,32 +94,42 @@ async def enhanced_zip_lookup(zip_code: str, city_input: str):
             for zip_entry in zips:
                 for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
                     if candidate and candidate.lower() == city_lower:
+                        print(f"DEBUG: Exact match found: {candidate}")
                         return candidate
             
             # 2. "Startet mit" Match
             for zip_entry in zips:
                 for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
                     if candidate and candidate.lower().startswith(city_lower):
+                        print(f"DEBUG: Starts-with match found: {candidate}")
                         return candidate
             
             # 3. "Enthält" Match
             for zip_entry in zips:
                 for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
                     if candidate and city_lower in candidate.lower():
+                        print(f"DEBUG: Contains match found: {candidate}")
                         return candidate
             
             # 4. Ähnlichkeits-Score (niedrigere Schwelle)
             best_match = None
             best_score = 0.0
             
+            print(f"DEBUG: Trying similarity matching for '{city_input}'")
             for zip_entry in zips:
                 for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
                     if candidate:
                         # Einfache Ähnlichkeits-Berechnung
                         score = len(set(city_lower) & set(candidate.lower())) / max(len(city_lower), len(candidate.lower()))
+                        print(f"DEBUG: Candidate '{candidate}' score: {score:.2f}")
                         if score > best_score and score > 0.2:  # Niedrigere Schwelle
                             best_score = score
                             best_match = candidate
+            
+            if best_match:
+                print(f"DEBUG: Best similarity match: {best_match} (score: {best_score:.2f})")
+            else:
+                print(f"DEBUG: No similarity match found (best score: {best_score:.2f})")
             
             return best_match
     
@@ -180,8 +195,11 @@ class SwisspostHTTPHandler(BaseHTTPRequestHandler):
                     # Versuche erweiterte ZIP-Autocomplete (synchrone Version)
                     try:
                         import asyncio
+                        print(f"DEBUG: Attempting city correction for ZIP {postcode}, city '{city}'")
                         corrected_city = asyncio.run(enhanced_zip_lookup(postcode, city))
-                    except:
+                        print(f"DEBUG: City correction result: {corrected_city}")
+                    except Exception as e:
+                        print(f"DEBUG: City correction failed: {e}")
                         corrected_city = None
                 
                 if corrected_city and corrected_city != data.get('city'):
@@ -299,7 +317,7 @@ class SwisspostHTTPHandler(BaseHTTPRequestHandler):
                         # Load credentials from environment
                         client_id = os.getenv("SWISSPOST_CLIENT_ID")
                         client_secret = os.getenv("SWISSPOST_CLIENT_SECRET")
-                        scope = "api"
+                        scope = os.getenv("SWISSPOST_SCOPE", "DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE")
                         
                         if not client_id or not client_secret:
                             return {"error": "Swisspost credentials not found in environment", "success": False}
