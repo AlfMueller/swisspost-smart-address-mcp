@@ -665,13 +665,17 @@ class SmartAddressAgent:
                     print(f"DEBUG: Streets is not a list: {type(streets)} - {streets}")
                     return None
                 
-                # Prüfe ob der erste Eintrag ein Dictionary ist
-                if not isinstance(streets[0], dict):
-                    print(f"DEBUG: First street entry is not a dict: {type(streets[0])} - {streets[0]}")
+                # Prüfe ob der erste Eintrag ein Dictionary oder String ist
+                if isinstance(streets[0], dict):
+                    # Dictionary Format: {'name': 'Talstrasse'}
+                    street_name = streets[0].get('name', '')
+                elif isinstance(streets[0], str):
+                    # String Format: 'Talstrasse'
+                    street_name = streets[0]
+                else:
+                    print(f"DEBUG: Unexpected street entry format: {type(streets[0])} - {streets[0]}")
                     return None
                 
-                # Ersten/besten Match nehmen
-                street_name = streets[0].get('name', '')
                 print(f"DEBUG: Found street name: {street_name}")
                 return street_name
         
@@ -713,13 +717,17 @@ class SmartAddressAgent:
                     print(f"DEBUG: Houses is not a list: {type(houses)} - {houses}")
                     return None
                 
-                # Prüfe ob der erste Eintrag ein Dictionary ist
-                if not isinstance(houses[0], dict):
-                    print(f"DEBUG: First house entry is not a dict: {type(houses[0])} - {houses[0]}")
+                # Prüfe ob der erste Eintrag ein Dictionary oder String ist
+                if isinstance(houses[0], dict):
+                    # Dictionary Format: {'number': '4'}
+                    house_number = houses[0].get('number', '')
+                elif isinstance(houses[0], str):
+                    # String Format: '4'
+                    house_number = houses[0]
+                else:
+                    print(f"DEBUG: Unexpected house entry format: {type(houses[0])} - {houses[0]}")
                     return None
                 
-                # Ersten Match nehmen
-                house_number = houses[0].get('number', '')
                 print(f"DEBUG: Found house number: {house_number}")
                 return house_number
         
