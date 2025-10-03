@@ -16,6 +16,112 @@ import httpx
 # Load environment variables
 load_dotenv(override=True)
 
+# Swisspost API Konfiguration
+OAUTH_TOKEN_URL = "https://api.post.ch/OAuth/token"
+API_BASE_URL = "https://dcapi.apis.post.ch/address/v1"
+
+async def get_swisspost_token():
+    """Holt Swisspost OAuth Token"""
+    try:
+        client_id = os.getenv("SWISSPOST_CLIENT_ID")
+        client_secret = os.getenv("SWISSPOST_CLIENT_SECRET")
+        scope = os.getenv("SWISSPOST_SCOPE", "DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE")
+        
+        if not client_id or not client_secret:
+            return None
+            
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                OAUTH_TOKEN_URL,
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "scope": scope
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=10.0
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data["access_token"]
+            else:
+                print(f"OAuth Fehler: {response.status_code} - {response.text}")
+                return None
+    except Exception as e:
+        print(f"Token Fehler: {e}")
+        return None
+
+async def enhanced_zip_lookup(zip_code: str, city_input: str):
+    """
+    Erweiterte Stadt-Korrektur mit verschiedenen Suchstrategien
+    """
+    try:
+        token = await get_swisspost_token()
+        if not token:
+            return None
+            
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{API_BASE_URL}/zips",
+                headers={"Authorization": f"Bearer {token}"},
+                params={
+                    "zipCity": zip_code,
+                    "type": "DOMICILE"
+                },
+                timeout=10.0
+            )
+            
+            if response.status_code != 200:
+                return None
+            
+            data = response.json()
+            zips = data.get('zips', [])
+            
+            if not zips:
+                return None
+            
+            # Verschiedene Suchstrategien
+            city_lower = city_input.lower()
+            
+            # 1. Exakter Match (case-insensitive)
+            for zip_entry in zips:
+                for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
+                    if candidate and candidate.lower() == city_lower:
+                        return candidate
+            
+            # 2. "Startet mit" Match
+            for zip_entry in zips:
+                for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
+                    if candidate and candidate.lower().startswith(city_lower):
+                        return candidate
+            
+            # 3. "Enthält" Match
+            for zip_entry in zips:
+                for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
+                    if candidate and city_lower in candidate.lower():
+                        return candidate
+            
+            # 4. Ähnlichkeits-Score (niedrigere Schwelle)
+            best_match = None
+            best_score = 0.0
+            
+            for zip_entry in zips:
+                for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
+                    if candidate:
+                        # Einfache Ähnlichkeits-Berechnung
+                        score = len(set(city_lower) & set(candidate.lower())) / max(len(city_lower), len(candidate.lower()))
+                        if score > best_score and score > 0.2:  # Niedrigere Schwelle
+                            best_score = score
+                            best_match = candidate
+            
+            return best_match
+    
+    except Exception as e:
+        print(f"Enhanced ZIP lookup Fehler: {e}")
+        return None
+
 class SwisspostHTTPHandler(BaseHTTPRequestHandler):
     """HTTP Request Handler für Swisspost MCP Proxy"""
     
@@ -65,19 +171,17 @@ class SwisspostHTTPHandler(BaseHTTPRequestHandler):
                 
                 print(f"INFO: Validation failed, trying city correction for {data.get('postcode')}")
                 
-                # Hardcoded city correction for known cases
+                # Erweiterte Stadt-Korrektur für alle PLZ
                 corrected_city = None
                 postcode = data.get('postcode', '')
-                city = data.get('city', '').lower()
+                city = data.get('city', '')
                 
-                if postcode == "4586" and city == "kyburg":
-                    corrected_city = "Kyburg-Buchegg"
-                elif postcode == "8001" and city == "musterstadt":
-                    corrected_city = "Musterstadt-Korrekt"
-                elif postcode == "8002" and city == "beispielstadt":
-                    corrected_city = "Beispielstadt-Korrekt"
-                elif postcode == "8003" and city == "teststadt":
-                    corrected_city = "Teststadt-Korrekt"
+                if postcode and city:
+                    # Versuche erweiterte ZIP-Autocomplete
+                    try:
+                        corrected_city = await enhanced_zip_lookup(postcode, city)
+                    except:
+                        corrected_city = None
                 
                 if corrected_city and corrected_city != data.get('city'):
                     print(f"INFO: Found correct city name: {corrected_city} (was: {data.get('city')})")

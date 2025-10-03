@@ -379,22 +379,14 @@ class SmartAddressAgent:
             })
         city_final = city_corrected or city_raw
         
-        # Fallback: Hardcoded city correction for known cases
-        if not city_corrected:
-            if postcode_raw == "4586" and city_raw.lower() == "kyburg":
-                city_corrected = "Kyburg-Buchegg"
+        # Fallback: Erweiterte Stadt-Korrektur für alle PLZ
+        if not city_corrected and postcode_raw and city_raw:
+            # Versuche erweiterte ZIP-Autocomplete mit verschiedenen Suchstrategien
+            city_corrected = await self.enhanced_city_correction(postcode_raw, city_raw)
+            if city_corrected and city_corrected != city_raw:
                 corrections.append({
                     'type': 'city_corrected',
-                    'message': f'Ortsname korrigiert via Fallback-Lookup',
-                    'old': city_raw,
-                    'new': city_corrected
-                })
-                city_final = city_corrected
-            elif postcode_raw == "8001" and city_raw.lower() == "musterstadt":
-                city_corrected = "Musterstadt-Korrekt"
-                corrections.append({
-                    'type': 'city_corrected',
-                    'message': f'Ortsname korrigiert via Fallback-Lookup',
+                    'message': f'Ortsname korrigiert via erweiterte ZIP-Suche',
                     'old': city_raw,
                     'new': city_corrected
                 })
@@ -505,6 +497,72 @@ class SmartAddressAgent:
             'validation': validation_result.get('response', {}),
             'has_corrections': len(corrections) > 0
         }
+    
+    async def enhanced_city_correction(self, zip_code: str, city_input: str) -> Optional[str]:
+        """
+        Erweiterte Stadt-Korrektur mit verschiedenen Suchstrategien
+        """
+        try:
+            token = await self.token_manager.get_token()
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{API_BASE_URL}/zips",
+                    headers={"Authorization": f"Bearer {token}"},
+                    params={
+                        "zipCity": zip_code,
+                        "type": "DOMICILE"
+                    },
+                    timeout=10.0
+                )
+                
+                if response.status_code != 200:
+                    return None
+                
+                data = response.json()
+                zips = data.get('zips', [])
+                
+                if not zips:
+                    return None
+                
+                # Verschiedene Suchstrategien
+                city_lower = city_input.lower()
+                
+                # 1. Exakter Match (case-insensitive)
+                for zip_entry in zips:
+                    for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
+                        if candidate and candidate.lower() == city_lower:
+                            return candidate
+                
+                # 2. "Startet mit" Match
+                for zip_entry in zips:
+                    for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
+                        if candidate and candidate.lower().startswith(city_lower):
+                            return candidate
+                
+                # 3. "Enthält" Match
+                for zip_entry in zips:
+                    for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
+                        if candidate and city_lower in candidate.lower():
+                            return candidate
+                
+                # 4. Ähnlichkeits-Score (niedrigere Schwelle)
+                best_match = None
+                best_score = 0.0
+                
+                for zip_entry in zips:
+                    for candidate in [zip_entry.get('city18', ''), zip_entry.get('city27', '')]:
+                        if candidate:
+                            score = self.analyzer.similarity_score(city_input, candidate)
+                            if score > best_score and score > 0.2:  # Niedrigere Schwelle
+                                best_score = score
+                                best_match = candidate
+                
+                return best_match
+        
+        except Exception as e:
+            print(f"Enhanced city correction Fehler: {e}")
+            return None
     
     async def autocomplete_zip(self, zip_code: str, city_input: str) -> Optional[str]:
         """
