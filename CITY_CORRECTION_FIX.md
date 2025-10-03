@@ -4,9 +4,13 @@
 Die City Correction funktionierte nicht auf dem Server, obwohl sie in der `smart-address-agent.py` korrekt implementiert war.
 
 ## Ursache
-Im HTTP-Proxy (`n8n-workflows/http-proxy.py`) wurde der falsche OAuth-Scope verwendet:
-- **Falsch**: `scope = "api"`
-- **Richtig**: `scope = os.getenv("SWISSPOST_SCOPE", "DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE")`
+1. **HTTP-Proxy Scope**: Im HTTP-Proxy (`n8n-workflows/http-proxy.py`) wurde der falsche OAuth-Scope verwendet:
+   - **Falsch**: `scope = "api"`
+   - **Richtig**: `scope = os.getenv("SWISSPOST_SCOPE", "DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE")`
+
+2. **Environment Scope**: In der `.env` Datei fehlte der `DCAPI_ADDRESS_AUTOCOMPLETE` Scope:
+   - **Falsch**: `SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE`
+   - **Richtig**: `SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE`
 
 ## Behobene Dateien
 
