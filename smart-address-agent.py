@@ -152,67 +152,79 @@ class AddressAnalyzer:
         if not street:
             return street
         
-        # Deutsche Abkürzungen
-        german_abbrev = {
+        # Abkürzungs-Mapping (längere zuerst, um Überschneidungen zu vermeiden)
+        abbreviations = {
+            # Deutsche Abkürzungen
             'str.': 'strasse',
-            'str': 'strasse',
-            'g.': 'gasse',
+            'str ': 'strasse ',
+            'str$': 'strasse',
             'wg.': 'weg',
-            'wg': 'weg',
-            'pl.': 'platz',
-            'pl': 'platz',
+            'wg ': 'weg ',
+            'wg$': 'weg',
             'all.': 'allee',
-            'all': 'allee',
-            'r.': 'ring',
-            'r': 'ring',
+            'all ': 'allee ',
+            'all$': 'allee',
             'prom.': 'promenade',
-            'prom': 'promenade'
-        }
-        
-        # Französische Abkürzungen
-        french_abbrev = {
-            'r.': 'rue',
+            'prom ': 'promenade ',
+            'prom$': 'promenade',
+            'g.': 'gasse',
+            'g ': 'gasse ',
+            'g$': 'gasse',
+            
+            # Französische Abkürzungen
             'av.': 'avenue',
-            'av': 'avenue',
+            'av ': 'avenue ',
+            'av$': 'avenue',
             'bd.': 'boulevard',
-            'bd': 'boulevard',
+            'bd ': 'boulevard ',
+            'bd$': 'boulevard',
             'ch.': 'chemin',
-            'ch': 'chemin',
-            'pl.': 'place',
-            'pl': 'place',
+            'ch ': 'chemin ',
+            'ch$': 'chemin',
             'rt.': 'route',
-            'rt': 'route',
-            'prom.': 'promenade',
-            'prom': 'promenade'
-        }
-        
-        # Italienische Abkürzungen
-        italian_abbrev = {
-            'v.': 'via',
-            'vl.': 'viale',
-            'vl': 'viale',
+            'rt ': 'route ',
+            'rt$': 'route',
+            
+            # Italienische Abkürzungen
             'c.so': 'corso',
             'cs.': 'corso',
-            'cs': 'corso',
-            'p.za': 'piazza',
+            'cs ': 'corso ',
+            'cs$': 'corso',
             'p.za.': 'piazza',
-            'l.go': 'largo',
+            'p.za': 'piazza',
             'l.go.': 'largo',
+            'l.go': 'largo',
             'vic.': 'vicolo',
-            'vic': 'vicolo',
+            'vic ': 'vicolo ',
+            'vic$': 'vicolo',
             'pgg.': 'passeggiata',
-            'pgg': 'passeggiata'
+            'pgg ': 'passeggiata ',
+            'pgg$': 'passeggiata',
+            'vl.': 'viale',
+            'vl ': 'viale ',
+            'vl$': 'viale',
+            'v.': 'via',
+            'v ': 'via ',
+            'v$': 'via',
+            
+            # Konfliktlösung: r. und pl. je nach Kontext
+            # Für deutsche Kontexte: r. = ring, pl. = platz
+            'r.': 'ring',
+            'r ': 'ring ',
+            'r$': 'ring',
+            'pl.': 'platz',
+            'pl ': 'platz ',
+            'pl$': 'platz'
         }
         
-        # Alle Abkürzungen zusammenfassen
-        all_abbrev = {**german_abbrev, **french_abbrev, **italian_abbrev}
+        # Sortiere nach Länge (längere zuerst)
+        sorted_abbrev = sorted(abbreviations.items(), key=lambda x: len(x[0]), reverse=True)
         
-        # Abkürzungen ersetzen (case-insensitive)
+        # Abkürzungen ersetzen
         result = street
-        for abbrev, full in all_abbrev.items():
-            # Ersetze mit Groß-/Kleinschreibung beibehalten
-            pattern = re.compile(re.escape(abbrev), re.IGNORECASE)
-            result = pattern.sub(lambda m: full if m.group().islower() else full.capitalize(), result)
+        for abbrev, full in sorted_abbrev:
+            # Ersetze mit case-insensitive
+            result = re.sub(re.escape(abbrev), full, result, flags=re.IGNORECASE)
         
         return result
     
