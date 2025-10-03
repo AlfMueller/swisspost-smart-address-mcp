@@ -441,10 +441,44 @@ class SmartAddressAgent:
         quality = validation_result.get('response', {}).get('quality', 'UNUSABLE')
         score = self.quality_to_score(quality)
         
+        # Personendaten formatieren und Korrekturen hinzufügen
+        firstname_raw = address.get('firstname', '')
+        lastname_raw = address.get('lastname', '')
+        company_raw = address.get('company', '')
+        
+        firstname_formatted = firstname_raw.title() if firstname_raw else ""
+        lastname_formatted = lastname_raw.title() if lastname_raw else ""
+        company_formatted = company_raw.title() if company_raw else ""
+        
+        # Personendaten-Korrekturen hinzufügen
+        if firstname_formatted != firstname_raw and firstname_raw:
+            corrections.append({
+                'type': 'firstname_formatted',
+                'message': 'Vorname formatiert',
+                'old': firstname_raw,
+                'new': firstname_formatted
+            })
+        
+        if lastname_formatted != lastname_raw and lastname_raw:
+            corrections.append({
+                'type': 'lastname_formatted',
+                'message': 'Nachname formatiert',
+                'old': lastname_raw,
+                'new': lastname_formatted
+            })
+        
+        if company_formatted != company_raw and company_raw:
+            corrections.append({
+                'type': 'company_formatted',
+                'message': 'Firmenname formatiert',
+                'old': company_raw,
+                'new': company_formatted
+            })
+        
         # Korrigierte Ausgabe formatieren
         corrected_formatted = self.analyzer.format_corrected_output(
             street_name_raw, house_no_raw, city_final, postcode_raw,
-            address.get('firstname', ''), address.get('lastname', ''), address.get('company', '')
+            firstname_formatted, lastname_formatted, company_formatted
         )
         
         return {
