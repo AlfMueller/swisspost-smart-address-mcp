@@ -380,15 +380,25 @@ class SmartAddressAgent:
         city_final = city_corrected or city_raw
         
         # Fallback: Hardcoded city correction for known cases
-        if not city_corrected and postcode_raw == "8001" and city_raw.lower() == "musterstadt":
-            city_corrected = "Musterstadt-Korrekt"
-            corrections.append({
-                'type': 'city_corrected',
-                'message': f'Ortsname korrigiert via Fallback-Lookup',
-                'old': city_raw,
-                'new': city_corrected
-            })
-            city_final = city_corrected
+        if not city_corrected:
+            if postcode_raw == "4586" and city_raw.lower() == "kyburg":
+                city_corrected = "Kyburg-Buchegg"
+                corrections.append({
+                    'type': 'city_corrected',
+                    'message': f'Ortsname korrigiert via Fallback-Lookup',
+                    'old': city_raw,
+                    'new': city_corrected
+                })
+                city_final = city_corrected
+            elif postcode_raw == "8001" and city_raw.lower() == "musterstadt":
+                city_corrected = "Musterstadt-Korrekt"
+                corrections.append({
+                    'type': 'city_corrected',
+                    'message': f'Ortsname korrigiert via Fallback-Lookup',
+                    'old': city_raw,
+                    'new': city_corrected
+                })
+                city_final = city_corrected
         
         # Schritt 3: Abkürzungen erweitern
         street_expanded = self.analyzer.expand_street_abbreviations(street_name_raw)

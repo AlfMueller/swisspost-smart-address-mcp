@@ -70,7 +70,9 @@ class SwisspostHTTPHandler(BaseHTTPRequestHandler):
                 postcode = data.get('postcode', '')
                 city = data.get('city', '').lower()
                 
-                if postcode == "8001" and city == "musterstadt":
+                if postcode == "4586" and city == "kyburg":
+                    corrected_city = "Kyburg-Buchegg"
+                elif postcode == "8001" and city == "musterstadt":
                     corrected_city = "Musterstadt-Korrekt"
                 elif postcode == "8002" and city == "beispielstadt":
                     corrected_city = "Beispielstadt-Korrekt"
