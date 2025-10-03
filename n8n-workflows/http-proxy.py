@@ -177,9 +177,10 @@ class SwisspostHTTPHandler(BaseHTTPRequestHandler):
                 city = data.get('city', '')
                 
                 if postcode and city:
-                    # Versuche erweiterte ZIP-Autocomplete
+                    # Versuche erweiterte ZIP-Autocomplete (synchrone Version)
                     try:
-                        corrected_city = await enhanced_zip_lookup(postcode, city)
+                        import asyncio
+                        corrected_city = asyncio.run(enhanced_zip_lookup(postcode, city))
                     except:
                         corrected_city = None
                 
