@@ -237,7 +237,7 @@ class AddressAnalyzer:
         if street_name[0].islower():
             return street_name[0].upper() + street_name[1:]
         return street_name
-
+    
     @staticmethod
     def format_corrected_output(street_name: str, house_number: str, city: str, postcode: str, 
                                firstname: str = "", lastname: str = "", company: str = "") -> Dict[str, str]:
@@ -442,7 +442,7 @@ class SmartAddressAgent:
             house2_pattern = re.compile(r"^\d+[a-zA-Z]?([\/-]\d+[a-zA-Z]?)?$|^\d+\.\d+$")
             if house2_pattern.match(street2_candidate):
                 house_no_raw = street2_candidate
-                corrections.append({
+            corrections.append({
                     'type': 'house_number_from_street2',
                     'message': 'Hausnummer aus street2 übernommen',
                     'old': '',
@@ -478,7 +478,7 @@ class SmartAddressAgent:
         # Prüfe ob Hausnummer am Anfang war und Korrektur hinzufügen
         if house_no_raw and street_raw != f"{street_name_raw} {house_no_raw}".strip():
             # Hausnummer war am Anfang, wurde aber bereits von normalize_street korrigiert
-            corrections.append({
+                corrections.append({
                 'type': 'house_number_moved_to_end',
                 'message': 'Hausnummer vom Anfang der Straße ans Ende verschoben',
                 'old': street_raw,
@@ -655,6 +655,121 @@ class SmartAddressAgent:
             })
             house_no_raw = final_house_number
 
+        # Zusätzliche Korrekturlogik auch bei schwachen Ergebnissen (UNUSABLE/COMPROMISED/VERIFIED):
+        # 0) Setze Ort aus PLZ (ZIP→City), 1) Prüfe Strasse in anderen PLZs für den Ort, 2) House-Autocomplete
+        if quality in ('UNUSABLE', 'COMPROMISED', 'VERIFIED'):
+            # 0) Ort aus PLZ ermitteln und ggf. erzwingen
+            try:
+                city_from_zip = await self.autocomplete_zip(postcode_raw, city_final)
+            except Exception:
+                city_from_zip = None
+            if city_from_zip and city_from_zip != city_final:
+                corrections.append({
+                    'type': 'city_corrected_from_zip',
+                    'message': f"Ort anhand PLZ korrigiert (PLZ {postcode_raw} gehört zu '{city_from_zip}')",
+                    'old': city_final,
+                    'new': city_from_zip
+                })
+                city_final = city_from_zip
+                re_after_zip_city = await self.call_validation_api({
+                    'firstname': address.get('firstname', ''),
+                    'lastname': address.get('lastname', ''),
+                    'company': address.get('company', ''),
+                    'street_name': street_name_raw,
+                    'house_number': house_no_raw,
+                    'city': city_final,
+                    'postcode': postcode_raw
+                })
+                validation_result = re_after_zip_city
+                quality = re_after_zip_city.get('response', {}).get('quality', quality)
+
+            try:
+                token = await self.token_manager.get_token()
+                async with httpx.AsyncClient() as client:
+                    resp_z_by_city = await client.get(
+                        f"{API_BASE_URL}/zips",
+                        headers={"Authorization": f"Bearer {token}"},
+                        params={"zipCity": city_final, "type": "DOMICILE"},
+                        timeout=10.0
+                    )
+                    if resp_z_by_city.status_code == 200:
+                        zips_for_city = resp_z_by_city.json().get('zips', [])
+                        for entry in zips_for_city:
+                            candidate_zip = str(entry.get('zip', '')).strip()
+                            if not candidate_zip:
+                                continue
+                            try:
+                                street_in_candidate = await self.autocomplete_street(candidate_zip, street_name_raw)
+                            except Exception:
+                                street_in_candidate = None
+                            if street_in_candidate:
+                                if candidate_zip != postcode_raw:
+                                    corrections.append({
+                                        'type': 'zip_corrected_from_street',
+                                        'message': 'PLZ anhand Strasse+Ort korrigiert',
+                                        'old': postcode_raw,
+                                        'new': candidate_zip
+                                    })
+                                    postcode_raw = candidate_zip
+                                chosen_city = entry.get('city18') or entry.get('city27') or city_final
+                                if chosen_city != city_final:
+                                    corrections.append({
+                                        'type': 'city_corrected_from_street_zip',
+                                        'message': 'Ort anhand Strasse+PLZ korrigiert',
+                                        'old': city_final,
+                                        'new': chosen_city
+                                    })
+                                    city_final = chosen_city
+                                if street_in_candidate != street_name_raw:
+                                    corrections.append({
+                                        'type': 'street_corrected_from_zip_search',
+                                        'message': 'Strassenname via Street-Lookup (nach ZIP-Suche) korrigiert',
+                                        'old': street_name_raw,
+                                        'new': street_in_candidate
+                                    })
+                                    street_name_raw = street_in_candidate
+                                # Re-Validierung nach ZIP/City-Korrektur
+                                re_validation_zip2 = await self.call_validation_api({
+                                    'firstname': address.get('firstname', ''),
+                                    'lastname': address.get('lastname', ''),
+                                    'company': address.get('company', ''),
+                                    'street_name': street_name_raw,
+                                    'house_number': house_no_raw,
+                                    'city': city_final,
+                                    'postcode': postcode_raw
+                                })
+                                validation_result = re_validation_zip2
+                                quality = re_validation_zip2.get('response', {}).get('quality', quality)
+                                break
+            except Exception:
+                pass
+
+            # 2) House-Autocomplete erneut versuchen (zur Absicherung), danach re-validieren
+            try:
+                if postcode_raw and street_name_raw and house_no_raw:
+                    house_validated2 = await self.autocomplete_house(postcode_raw, street_name_raw, house_no_raw)
+                    if house_validated2 and house_validated2 != house_no_raw:
+                        corrections.append({
+                            'type': 'house_number_corrected_after_zip_city',
+                            'message': 'Hausnummer via House-Lookup nach ZIP/City-Korrektur korrigiert',
+                            'old': house_no_raw,
+                            'new': house_validated2
+                        })
+                        house_no_raw = house_validated2
+                        re_after_house = await self.call_validation_api({
+                            'firstname': address.get('firstname', ''),
+                            'lastname': address.get('lastname', ''),
+                            'company': address.get('company', ''),
+                            'street_name': street_name_raw,
+                            'house_number': house_no_raw,
+                            'city': city_final,
+                            'postcode': postcode_raw
+                        })
+                        validation_result = re_after_house
+                        quality = re_after_house.get('response', {}).get('quality', quality)
+            except Exception:
+                pass
+
         # Bei USABLE: Zusatzlogik gemäß Anforderung (Street → Revalidate → City → Revalidate)
         if quality == 'USABLE':
             # 1) Street-Korrektur per Streets-API versuchen
@@ -688,50 +803,118 @@ class SmartAddressAgent:
                 validation_result = re_validation
                 quality = re_quality
             else:
-                # 2) City-Korrektur: Ortsnamen aus ZIPs bestimmen und besten per Buchstaben-Überschneidung wählen
-                city_choice = None
+                # 2) Versuche PLZ anhand des Ortes zu ermitteln, für die die Strasse existiert
+                fixed_by_zip = False
                 try:
                     token = await self.token_manager.get_token()
                     async with httpx.AsyncClient() as client:
-                        resp = await client.get(
+                        resp_z_by_city = await client.get(
                             f"{API_BASE_URL}/zips",
                             headers={"Authorization": f"Bearer {token}"},
-                            params={"zipCity": postcode_raw, "type": "DOMICILE"},
+                            params={"zipCity": city_final, "type": "DOMICILE"},
                             timeout=10.0
                         )
-                        if resp.status_code == 200:
-                            zips = resp.json().get('zips', [])
-                            candidates: List[str] = []
-                            for entry in zips:
-                                for cand in [entry.get('city18', ''), entry.get('city27', '')]:
-                                    if cand:
-                                        candidates.append(cand)
-                            if candidates:
-                                city_choice = self._pick_best_city_by_overlap(city_final, candidates)
+                        if resp_z_by_city.status_code == 200:
+                            zips_for_city = resp_z_by_city.json().get('zips', [])
+                            for entry in zips_for_city:
+                                candidate_zip = str(entry.get('zip', '')).strip()
+                                if not candidate_zip:
+                                    continue
+                                try:
+                                    street_in_candidate = await self.autocomplete_street(candidate_zip, street_name_raw)
+                                except Exception:
+                                    street_in_candidate = None
+                                if street_in_candidate:
+                                    # Korrigiere PLZ und ggf. Strassen-Schreibweise, Ort aus ZIP übernehmen
+                                    if candidate_zip != postcode_raw:
+                                        corrections.append({
+                                            'type': 'zip_corrected_from_street',
+                                            'message': 'PLZ anhand Strasse+Ort korrigiert',
+                                            'old': postcode_raw,
+                                            'new': candidate_zip
+                                        })
+                                        postcode_raw = candidate_zip
+                                    chosen_city = entry.get('city18') or entry.get('city27') or city_final
+                                    if chosen_city != city_final:
+                                        corrections.append({
+                                            'type': 'city_corrected_from_street_zip',
+                                            'message': 'Ort anhand Strasse+PLZ korrigiert',
+                                            'old': city_final,
+                                            'new': chosen_city
+                                        })
+                                        city_final = chosen_city
+                                    if street_in_candidate != street_name_raw:
+                                        corrections.append({
+                                            'type': 'street_corrected_from_zip_search',
+                                            'message': 'Strassenname via Street-Lookup (nach ZIP-Suche) korrigiert',
+                                            'old': street_name_raw,
+                                            'new': street_in_candidate
+                                        })
+                                        street_name_raw = street_in_candidate
+                                    fixed_by_zip = True
+                                    break
                 except Exception:
-                    city_choice = None
+                    fixed_by_zip = False
 
-                if city_choice and city_choice != city_final:
-                    corrections.append({
-                        'type': 'city_corrected_after_usable',
-                        'message': 'Ort via ZIP-Lookup nach USABLE verbessert (Buchstaben-Überschneidung)',
-                        'old': original_city,
-                        'new': city_choice
+                if fixed_by_zip:
+                    # Re-Validierung nach ZIP/City-Korrektur
+                    re_validation_zip = await self.call_validation_api({
+                        'firstname': address.get('firstname', ''),
+                        'lastname': address.get('lastname', ''),
+                        'company': address.get('company', ''),
+                        'street_name': street_name_raw,
+                        'house_number': house_no_raw,
+                        'city': city_final,
+                        'postcode': postcode_raw
                     })
-                    city_final = city_choice
+                    validation_result = re_validation_zip
+                    quality = re_validation_zip.get('response', {}).get('quality', quality)
 
-                # Zweite Re-Validierung nach City-Korrektur
-                re_validation_2 = await self.call_validation_api({
-                    'firstname': address.get('firstname', ''),
-                    'lastname': address.get('lastname', ''),
-                    'company': address.get('company', ''),
-                    'street_name': street_name_raw,
-                    'house_number': house_no_raw,
-                    'city': city_final,
-                    'postcode': postcode_raw
-                })
-                validation_result = re_validation_2
-                quality = re_validation_2.get('response', {}).get('quality', quality)
+                if not fixed_by_zip:
+                    # 3) City-Korrektur: Ortsnamen aus ZIPs bestimmen und besten per Buchstaben-Überschneidung wählen
+                    city_choice = None
+                    try:
+                        token = await self.token_manager.get_token()
+                        async with httpx.AsyncClient() as client:
+                            resp = await client.get(
+                                f"{API_BASE_URL}/zips",
+                                headers={"Authorization": f"Bearer {token}"},
+                                params={"zipCity": postcode_raw, "type": "DOMICILE"},
+                                timeout=10.0
+                            )
+                            if resp.status_code == 200:
+                                zips = resp.json().get('zips', [])
+                                candidates: List[str] = []
+                                for entry in zips:
+                                    for cand in [entry.get('city18', ''), entry.get('city27', '')]:
+                                        if cand:
+                                            candidates.append(cand)
+                                if candidates:
+                                    city_choice = self._pick_best_city_by_overlap(city_final, candidates)
+                    except Exception:
+                        city_choice = None
+
+                    if city_choice and city_choice != city_final:
+                        corrections.append({
+                            'type': 'city_corrected_after_usable',
+                            'message': 'Ort via ZIP-Lookup nach USABLE verbessert (Buchstaben-Überschneidung)',
+                            'old': original_city,
+                            'new': city_choice
+                        })
+                        city_final = city_choice
+
+                    # Zweite Re-Validierung nach City-Korrektur (oder wenn ZIP-Fix nicht gegriffen hat)
+                    re_validation_2 = await self.call_validation_api({
+                        'firstname': address.get('firstname', ''),
+                        'lastname': address.get('lastname', ''),
+                        'company': address.get('company', ''),
+                        'street_name': street_name_raw,
+                        'house_number': house_no_raw,
+                        'city': city_final,
+                        'postcode': postcode_raw
+                    })
+                    validation_result = re_validation_2
+                    quality = re_validation_2.get('response', {}).get('quality', quality)
         
         # Personendaten formatieren und Korrekturen hinzufügen
         firstname_raw = address.get('firstname', '')

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "swisspost-address": {
+      "command": "python",
+      "args": ["/path/to/your/swissspost_mcp/smart-address-agent.py"],
+      "cwd": "/path/to/your/swissspost_mcp"
+    }
+  }
+}
