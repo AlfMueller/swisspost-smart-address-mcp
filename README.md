@@ -722,6 +722,9 @@ SWISSPOST_SCOPE=DCAPI_ADDRESS_VALIDATE DCAPI_ADDRESS_AUTOCOMPLETE
 - `street_name_capitalized`: Straßenname mit Großbuchstaben am Anfang korrigiert
 - `street_from_api_enforced`: Strasse aus SwissPost API übernommen
 - `house_number_from_api_enforced`: Hausnummer aus SwissPost API übernommen
+- `house_number_from_street2`: Hausnummer aus street2 übernommen
+- `street2_capitalized`: street2 in Großbuchstaben korrigiert
+- `garbage_cleaned`: Müll-Strings (nur Bindestriche/Zahlen) entfernt
 - `swap_plz_city`: PLZ und Ort waren vertauscht
 - `city_corrected`: Ortsname via ZIP-Lookup korrigiert
 - `street_abbreviation_expanded`: Strassen-Abkürzung wurde erweitert

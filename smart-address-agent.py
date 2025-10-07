@@ -227,7 +227,7 @@ class AddressAnalyzer:
                 result = re.sub(safe_pattern, full, result)
         
         return result
-
+    
     @staticmethod
     def capitalize_street_name(street_name: str) -> str:
         """Kapitalisiert den ersten Buchstaben des Straßennamens, falls nötig."""
@@ -406,11 +406,53 @@ class SmartAddressAgent:
         
         # Schritt 1: Eingabe analysieren
         street_raw = str(address.get('street', ''))
+        street2_raw = str(address.get('street2', '')).strip()
         city_raw = str(address.get('city', '')).strip()
         postcode_raw = str(address.get('postcode', '')).strip()
         
+        # Müll-Filter für alle Felder
+        def clean_garbage(text: str) -> str:
+            """Entfernt Müll-Strings wie '------' oder nur Zahlen/Bindestriche"""
+            if not text:
+                return text
+            text = text.strip()
+            # Entferne Strings die nur aus Bindestrichen, Unterstrichen oder Leerzeichen bestehen (aber nicht reine Zahlen)
+            if re.match(r'^[\s\-_]+$', text):
+                return ''
+            return text
+        
+        street_raw = clean_garbage(street_raw)
+        street2_raw = clean_garbage(street2_raw)
+        city_raw = clean_garbage(city_raw)
+        postcode_raw = clean_garbage(postcode_raw)
+        
+        # Company auch bereinigen
+        company_raw = clean_garbage(str(address.get('company', '')))
+        
         # Strasse splitten (ohne weitere Korrekturen)
         street_name_raw, house_no_raw = self.analyzer.normalize_street(street_raw)
+        
+        # street2 Logik: Hausnummer aus street2 verwenden wenn street keine hat UND street2 eine Zahl ist
+        if street2_raw and not house_no_raw and street2_raw.isdigit():
+            # street2 als Hausnummer verwenden (nur wenn es eine Zahl ist)
+            house_no_raw = street2_raw
+            corrections.append({
+                'type': 'house_number_from_street2',
+                'message': 'Hausnummer aus street2 übernommen (nur Zahlen)',
+                'old': '',
+                'new': street2_raw
+            })
+        elif street2_raw and house_no_raw:
+            # street2 nur Großbuchstaben prüfen (nicht für Adresse wichtig)
+            street2_capitalized = street2_raw.upper() if street2_raw.islower() else street2_raw
+            if street2_capitalized != street2_raw:
+                corrections.append({
+                    'type': 'street2_capitalized',
+                    'message': 'street2 in Großbuchstaben korrigiert',
+                    'old': street2_raw,
+                    'new': street2_capitalized
+                })
+        
         # Originale Werte für Korrektur-Logging konservieren
         original_street_name = street_name_raw
         original_house_no = house_no_raw
@@ -508,6 +550,7 @@ class SmartAddressAgent:
                 'corrections': corrections,
                 'input': {
                     'street': street_raw,
+                    'street2': street2_raw,
                     'city': city_raw,
                     'postcode': postcode_raw,
                     'firstname': address.get('firstname', ''),
@@ -547,11 +590,11 @@ class SmartAddressAgent:
             city_corrected = await self.enhanced_city_correction(postcode_raw, city_raw)
             if city_corrected and city_corrected != city_raw:
                 corrections.append({
-                'type': 'city_corrected',
-                'message': f'Ortsname korrigiert via erweiterte ZIP-Suche',
+                    'type': 'city_corrected',
+                    'message': f'Ortsname korrigiert via erweiterte ZIP-Suche',
                 'old': original_city,
-                'new': city_corrected
-            })
+                    'new': city_corrected
+                })
                 city_final = city_corrected
         
         # Schritt 3: Abkürzungen erweitern
@@ -707,7 +750,7 @@ class SmartAddressAgent:
         # Personendaten formatieren und Korrekturen hinzufügen
         firstname_raw = address.get('firstname', '')
         lastname_raw = address.get('lastname', '')
-        company_raw = address.get('company', '')
+        # company_raw wurde bereits oben bereinigt
         
         firstname_formatted = firstname_raw.title() if firstname_raw else ""
         lastname_formatted = lastname_raw.title() if lastname_raw else ""
@@ -749,7 +792,7 @@ class SmartAddressAgent:
         
         # Score berechnen (nach möglicher Re-Validierung)
         score = self.quality_to_score(quality)
-
+        
         return {
             'status': 'success' if score >= 50 else 'failed',
             'quality': quality,
@@ -757,6 +800,7 @@ class SmartAddressAgent:
             'corrections': corrections,
             'input': {
                 'street': street_raw,
+                'street2': street2_raw,
                 'city': city_raw,
                 'postcode': postcode_raw,
                 'firstname': firstname_raw,
