@@ -162,7 +162,7 @@ class SwisspostHTTPHandler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             data = json.loads(post_data.decode('utf-8'))
             
-            print(f"INFO: Adressvalidierung: {data.get('street', '')} {data.get('city', '')} {data.get('postcode', '')}")
+            print(f"INFO: Adressvalidierung: {data.get('street', '')} {data.get('city', '')} {data.get('postcode', '')} | street2={data.get('street2', '')}")
             
             # Validate required fields
             required_fields = ['street', 'city', 'postcode']

@@ -432,16 +432,22 @@ class SmartAddressAgent:
         # Strasse splitten (ohne weitere Korrekturen)
         street_name_raw, house_no_raw = self.analyzer.normalize_street(street_raw)
         
-        # street2 Logik: Hausnummer aus street2 verwenden wenn street keine hat UND street2 eine Zahl ist
-        if street2_raw and not house_no_raw and street2_raw.isdigit():
-            # street2 als Hausnummer verwenden (nur wenn es eine Zahl ist)
-            house_no_raw = street2_raw
-            corrections.append({
-                'type': 'house_number_from_street2',
-                'message': 'Hausnummer aus street2 übernommen (nur Zahlen)',
-                'old': '',
-                'new': street2_raw
-            })
+        # street2 Logik: Hausnummer aus street2 verwenden, wenn street keine hat
+        # Erlaube typische Hausnummern-Formate: 18, 18a, 18/2, 64-66, 12-12a, 12.2
+        if street2_raw and not house_no_raw:
+            # Vorab leichte Normalisierung: Kommas entfernen, Mehrfach-Leerzeichen reduzieren
+            street2_candidate = re.sub(r",\s*", " ", street2_raw).strip()
+            street2_candidate = re.sub(r"\s+", " ", street2_candidate)
+            # Vollständiger Match ohne Wörter wie 'Apt', 'Nr', etc.: nur Hausnummern-Muster zulassen
+            house2_pattern = re.compile(r"^\d+[a-zA-Z]?([\/-]\d+[a-zA-Z]?)?$|^\d+\.\d+$")
+            if house2_pattern.match(street2_candidate):
+                house_no_raw = street2_candidate
+                corrections.append({
+                    'type': 'house_number_from_street2',
+                    'message': 'Hausnummer aus street2 übernommen',
+                    'old': '',
+                    'new': street2_candidate
+                })
         elif street2_raw and house_no_raw:
             # street2 nur Großbuchstaben prüfen (nicht für Adresse wichtig)
             street2_capitalized = street2_raw.upper() if street2_raw.islower() else street2_raw
@@ -573,29 +579,9 @@ class SmartAddressAgent:
             })
             postcode_raw, city_raw = city_raw, postcode_raw
         
-        # Schritt 2: ZIP Autocomplete - korrekten Ortsnamen finden
-        city_corrected = await self.autocomplete_zip(postcode_raw, city_raw)
-        if city_corrected and city_corrected != city_raw:
-            corrections.append({
-                'type': 'city_corrected',
-                'message': f'Ortsname korrigiert via ZIP-Lookup',
-                'old': original_city,
-                'new': city_corrected
-            })
-        city_final = city_corrected or city_raw
-        
-        # Fallback: Erweiterte Stadt-Korrektur für alle PLZ
-        if not city_corrected and postcode_raw and city_raw:
-            # Versuche erweiterte ZIP-Autocomplete mit verschiedenen Suchstrategien
-            city_corrected = await self.enhanced_city_correction(postcode_raw, city_raw)
-            if city_corrected and city_corrected != city_raw:
-                corrections.append({
-                    'type': 'city_corrected',
-                    'message': f'Ortsname korrigiert via erweiterte ZIP-Suche',
-                'old': original_city,
-                    'new': city_corrected
-                })
-                city_final = city_corrected
+        # City-Korrektur NICHT mehr im frühen Pfad durchführen,
+        # sondern erst später im USABLE-Zweig. Hier bleibt city_final unverändert.
+        city_final = city_raw
         
         # Schritt 3: Abkürzungen erweitern
         street_expanded = self.analyzer.expand_street_abbreviations(street_name_raw)
