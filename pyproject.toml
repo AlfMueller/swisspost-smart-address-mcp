@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swisspost-smart-address-mcp"
+version = "1.0.1"
+description = "🇨🇭 Swisspost Smart Address MCP Server - Intelligente Adressvalidierung mit automatischer Fehlerkorrektur für Claude Desktop, n8n und andere MCP-Clients"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+maintainers = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = [
+    "swisspost",
+    "mcp",
+    "address-validation", 
+    "claude-desktop",
+    "n8n",
+    "switzerland",
+    "postal-api",
+    "address-correction",
+    "automation",
+    "python",
+    "api",
+    "oauth2",
+    "json-rpc",
+    "stdio",
+    "data-quality",
+    "address-normalization",
+    "error-detection",
+    "workflow-integration"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Communications",
+    "Topic :: Office/Business",
+    "Topic :: Text Processing",
+    "Topic :: Scientific/Engineering :: Information Analysis"
+]
+requires-python = ">=3.8"
+dependencies = [
+    "httpx>=0.27.1",
+    "mcp>=1.15.0",
+    "python-dotenv>=1.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/AlfMueller/swisspost-smart-address-mcp"
+Repository = "https://github.com/AlfMueller/swisspost-smart-address-mcp"
+Issues = "https://github.com/AlfMueller/swisspost-smart-address-mcp/issues"
+Documentation = "https://github.com/AlfMueller/swisspost-smart-address-mcp#readme"
+Changelog = "https://github.com/AlfMueller/swisspost-smart-address-mcp/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["tests*", "__pycache__*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

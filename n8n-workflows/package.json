@@ -1,0 +1,45 @@
+{
+  "name": "swisspost-address-validation-n8n-workflows",
+  "version": "1.0.0-beta.1",
+  "description": "Intelligente Adressvalidierung mit Swisspost API über MCP Server in n8n (BETA)",
+  "main": "test-swisspost-workflow.js",
+  "scripts": {
+    "test": "node test-swisspost-workflow.js",
+    "test:basic": "node test-swisspost-workflow.js --basic",
+    "test:advanced": "node test-swisspost-workflow.js --advanced",
+    "start": "echo 'Import workflows into n8n and start MCP server'",
+    "docs": "echo 'See README.md for documentation'"
+  },
+  "keywords": [
+    "swisspost",
+    "address-validation",
+    "n8n",
+    "mcp",
+    "automation",
+    "api",
+    "switzerland",
+    "postal-validation",
+    "beta"
+  ],
+  "author": "AlfMueller",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlfMueller/swisspost-smart-address-mcp.git",
+    "directory": "n8n-workflows"
+  },
+  "bugs": {
+    "url": "https://github.com/AlfMueller/swisspost-smart-address-mcp/issues"
+  },
+  "homepage": "https://github.com/AlfMueller/swisspost-smart-address-mcp#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "files": [
+    "*.json",
+    "*.js",
+    "*.md"
+  ]
+}

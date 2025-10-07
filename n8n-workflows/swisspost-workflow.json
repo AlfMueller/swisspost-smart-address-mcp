@@ -1,0 +1,96 @@
+{
+  "name": "Swisspost Address Validation Advanced with MCP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "swisspost-validate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "652d20ad-658c-494b-81f5-11910d566555",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        -496,
+        144
+      ],
+      "webhookId": "1cfb7890-203c-431f-be99-030f296ae3ea",
+      "typeVersion": 2.1,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/validate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { firstname: $json.body.firstname || '', lastname: $json.body.lastname || '', company: $json.body.company || '', street: $json.body.street, city: $json.body.city, postcode: $json.body.postcode } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "c4a0c58d-73fe-4b3b-997d-6ad3b70b32cb",
+      "name": "Call MCP Proxy",
+      "type": "n8n-nodes-base.httpRequest",
+      "maxTries": 3,
+      "position": [
+        -304,
+        144
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "7e2dfe4d-791b-44c3-a7b7-3fcdcfc0cbfb",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        -96,
+        144
+      ],
+      "typeVersion": 1.5
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Call MCP Proxy": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Call MCP Proxy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ae922268-e4ca-4e92-aee8-4828a8186669",
+  "meta": {
+    "instanceId": "fde26a6acdcc639ad9fdd16df30e11a9d13c2d1de769c35e89d73542013762a6"
+  },
+  "id": "lKiNrmk9bCfiVCs8",
+  "tags": []
+}
