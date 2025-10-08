@@ -442,6 +442,8 @@ class SmartAddressAgent:
             house2_pattern = re.compile(r"^\d+[a-zA-Z]?([\/-]\d+[a-zA-Z]?)?$|^\d+\.\d+$")
             if house2_pattern.match(street2_candidate):
                 house_no_raw = street2_candidate
+                # street2 leeren, da Hausnummer übernommen wurde
+                street2_raw = ""
             corrections.append({
                     'type': 'house_number_from_street2',
                     'message': 'Hausnummer aus street2 übernommen',
@@ -458,6 +460,7 @@ class SmartAddressAgent:
                     'old': street2_raw,
                     'new': street2_capitalized
                 })
+                street2_raw = street2_capitalized
         
         # Originale Werte für Korrektur-Logging konservieren
         original_street_name = street_name_raw
@@ -495,6 +498,17 @@ class SmartAddressAgent:
                 'new': street_name_capitalized
             })
             street_name_raw = street_name_capitalized
+
+        # Ortsname-Kapitalisierung prüfen
+        city_capitalized = self.analyzer.capitalize_street_name(city_raw)
+        if city_capitalized != city_raw:
+            corrections.append({
+                'type': 'city_capitalized',
+                'message': 'Ortsname mit Großbuchstaben am Anfang korrigiert',
+                    'old': city_raw,
+                'new': city_capitalized
+            })
+            city_raw = city_capitalized
         
         # Schritt 1a: Erste Validierung OHNE Änderungen (keine Abkürzungen, kein Swap, kein Autocomplete)
         initial_validation = await self.call_validation_api({
